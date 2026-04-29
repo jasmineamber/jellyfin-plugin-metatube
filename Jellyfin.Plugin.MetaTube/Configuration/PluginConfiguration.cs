@@ -70,6 +70,12 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool EnableBadges { get; set; } = false;
 
 #if __EMBY__
+    [DisplayName("Refresh badges")]
+    [Description("Regenerate Chinese subtitle badges for all matching videos in the organize metadata task.")]
+#endif
+    public bool RefreshBadges { get; set; } = false;
+
+#if __EMBY__
     [DisplayName("Badge url")]
     [Description("Custom badge url, PNG format is recommended. (default: zimu.png)")]
 #endif

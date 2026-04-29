@@ -80,6 +80,7 @@ public class OrganizeMetadataTask : IScheduledTask
             progress?.Report((double)idx / items.Count * 100);
 
             var genres = item.Genres?.ToList() ?? new List<string>();
+            var itemChanged = false;
 
             try
             {
@@ -87,11 +88,16 @@ public class OrganizeMetadataTask : IScheduledTask
                         HasExternalChineseSubtitle(item.Path))
                 {
                     // Add `ChineseSubtitle` genre.
-                    case true when !genres.Contains(ChineseSubtitle):
+                    case true:
                     {
-                        genres.Add(ChineseSubtitle);
-                        if (Plugin.Instance.Configuration.EnableBadges)
-                            await SetPrimaryImage(item, Plugin.Instance.Configuration.BadgeUrl, cancellationToken);
+                        var addedChineseSubtitle = !genres.Contains(ChineseSubtitle);
+                        if (addedChineseSubtitle)
+                            genres.Add(ChineseSubtitle);
+
+                        if (Plugin.Instance.Configuration.EnableBadges &&
+                            (addedChineseSubtitle || Plugin.Instance.Configuration.RefreshBadges))
+                            itemChanged |= await SetPrimaryImage(item, Plugin.Instance.Configuration.BadgeUrl,
+                                cancellationToken);
                         break;
                     }
                     // Remove `ChineseSubtitle` genre.
@@ -99,7 +105,7 @@ public class OrganizeMetadataTask : IScheduledTask
                     {
                         genres.RemoveAll(s => s.Equals(ChineseSubtitle));
                         if (Plugin.Instance.Configuration.EnableBadges)
-                            await SetPrimaryImage(item, string.Empty, cancellationToken);
+                            itemChanged |= await SetPrimaryImage(item, string.Empty, cancellationToken);
                         break;
                     }
                 }
@@ -117,11 +123,15 @@ public class OrganizeMetadataTask : IScheduledTask
                     : genres).Distinct().OrderByString(genre => genre).ToList();
 
             // Skip updating item if equal.
-            if (!orderedGenres.Any() ||
-                (item.Genres?.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase)).GetValueOrDefault(false))
-                continue;
+            if (orderedGenres.Any() &&
+                !(item.Genres?.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase)).GetValueOrDefault(false))
+            {
+                item.Genres = orderedGenres.ToArray();
+                itemChanged = true;
+            }
 
-            item.Genres = orderedGenres.ToArray();
+            if (!itemChanged)
+                continue;
 
             _logger.Info("Organize metadata for video: {0}", item.Name);
 
@@ -175,11 +185,11 @@ public class OrganizeMetadataTask : IScheduledTask
                                      .Equals(basename, StringComparison.OrdinalIgnoreCase));
     }
 
-    private static async Task SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)
+    private static async Task<bool> SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)
     {
         var pid = item.GetPid(Plugin.Instance.Name);
         if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
-            return;
+            return false;
 
         var m = await ApiClient.GetMovieInfoAsync(pid.Provider, pid.Id, cancellationToken);
         // Set first primary image.
@@ -188,6 +198,8 @@ public class OrganizeMetadataTask : IScheduledTask
             Path = ApiClient.GetPrimaryImageApiUrl(m.Provider, m.Id, pid.Position ?? -1, badge),
             Type = ImageType.Primary
         }, 0);
+
+        return true;
     }
 
     #endregion
