@@ -6,12 +6,12 @@ using Jellyfin.Plugin.MetaTube.Translation;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Providers;
 using MovieInfo = MediaBrowser.Controller.Providers.MovieInfo;
 #if __EMBY__
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Configuration;
-using MediaBrowser.Model.Entities;
 
 #else
 using Jellyfin.Data.Enums;
@@ -47,11 +47,28 @@ public class MovieProvider : BaseProvider, IRemoteMetadataProvider<Movie, MovieI
         CancellationToken cancellationToken)
     {
         var pid = info.GetPid(Name);
+#if !__EMBY__
+        if (!string.IsNullOrWhiteSpace(pid.Id) &&
+            !string.IsNullOrWhiteSpace(pid.Provider) &&
+            pid.Update != true &&
+            info.IsAutomated)
+        {
+            Logger.Debug("Skip movie metadata refresh because metadata already exists: {0}", pid.ToString());
+            return new MetadataResult<Movie>();
+        }
+#endif
+
         if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
         {
             // Search movies and pick the first result.
             var firstResult = (await GetSearchResults(info, cancellationToken)).FirstOrDefault();
             if (firstResult != null) pid = firstResult.GetPid(Name);
+        }
+
+        if (string.IsNullOrWhiteSpace(pid.Id) || string.IsNullOrWhiteSpace(pid.Provider))
+        {
+            Logger.Warn("Movie provider id is missing: {0}", info.Name);
+            return new MetadataResult<Movie>();
         }
 
         Logger.Info("Get movie info: {0}", pid.ToString());
@@ -250,7 +267,14 @@ public class MovieProvider : BaseProvider, IRemoteMetadataProvider<Movie, MovieI
                 ProductionYear = m.ReleaseDate.GetValidYear(),
                 ImageUrl = ApiClient.GetPrimaryImageApiUrl(m.Provider, m.Id, m.ThumbUrl, 1.0, true)
             };
+#if !__EMBY__
+            // Search results are used by manual identify and by the initial auto match.
+            // Mark them as an explicit update so GetMetadata can distinguish that path
+            // from later background refreshes of an already matched item.
+            result.SetPid(Name, m.Provider, m.Id, pid.Position, true);
+#else
             result.SetPid(Name, m.Provider, m.Id, pid.Position);
+#endif
             results.Add(result);
         }
 
