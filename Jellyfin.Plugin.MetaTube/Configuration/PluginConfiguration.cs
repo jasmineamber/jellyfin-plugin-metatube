@@ -65,19 +65,19 @@ public class PluginConfiguration : BasePluginConfiguration
 
 #if __EMBY__
     [DisplayName("Enable badges")]
-    [Description("Add Chinese subtitle badges to primary images.")]
+    [Description("Add Chinese subtitle and uncensored badges to primary images.")]
 #endif
     public bool EnableBadges { get; set; } = false;
 
 #if __EMBY__
     [DisplayName("Refresh badges")]
-    [Description("Regenerate Chinese subtitle badges for all matching videos in the organize metadata task.")]
+    [Description("Regenerate subtitle and uncensored badges for matching videos in the organize metadata task.")]
 #endif
     public bool RefreshBadges { get; set; } = false;
 
 #if __EMBY__
     [DisplayName("Badge url")]
-    [Description("Custom badge url, PNG format is recommended. (default: zimu.png)")]
+    [Description("Custom badge url for Chinese-subtitle-only images, PNG format is recommended. (default: zimu.png)")]
 #endif
     public string BadgeUrl { get; set; } = "zimu.png";
 

@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.MetaTube", "Jellyfin.Plugin.MetaTube\Jellyfin.Plugin.MetaTube.csproj", "{DD1CDA77-5286-454A-BDCD-866FBE15E740}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jellyfin.Plugin.MetaTube.Tests", "Jellyfin.Plugin.MetaTube.Tests\Jellyfin.Plugin.MetaTube.Tests.csproj", "{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,11 @@ Global
 		{DD1CDA77-5286-454A-BDCD-866FBE15E740}.Debug.Emby|Any CPU.Build.0 = Debug.Emby|Any CPU
 		{DD1CDA77-5286-454A-BDCD-866FBE15E740}.Release.Emby|Any CPU.ActiveCfg = Release.Emby|Any CPU
 		{DD1CDA77-5286-454A-BDCD-866FBE15E740}.Release.Emby|Any CPU.Build.0 = Release.Emby|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Debug.Emby|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2318872-FEB8-45CA-8EAF-E43FB13A12B9}.Release.Emby|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 EndGlobal

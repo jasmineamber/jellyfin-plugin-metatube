@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Jellyfin.Plugin.MetaTube.Extensions;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -84,35 +83,31 @@ public class OrganizeMetadataTask : IScheduledTask
 
             try
             {
-                switch (HasEmbeddedChineseSubtitle(item.FileNameWithoutExtension) ||
-                        HasExternalChineseSubtitle(item.Path))
-                {
-                    // Add `ChineseSubtitle` genre.
-                    case true:
-                    {
-                        var addedChineseSubtitle = !genres.Contains(ChineseSubtitle);
-                        if (addedChineseSubtitle)
-                            genres.Add(ChineseSubtitle);
+                var hasChineseSubtitle =
+                    OrganizeMetadataHelper.HasEmbeddedChineseSubtitle(item.FileNameWithoutExtension) ||
+                    HasExternalChineseSubtitle(item.Path);
+                var hasUncensored = OrganizeMetadataHelper.HasUncensoredSuffix(item.FileNameWithoutExtension);
 
-                        if (Plugin.Instance.Configuration.EnableBadges &&
-                            (addedChineseSubtitle || Plugin.Instance.Configuration.RefreshBadges))
-                            itemChanged |= await SetPrimaryImage(item, Plugin.Instance.Configuration.BadgeUrl,
-                                cancellationToken);
-                        break;
-                    }
-                    // Remove `ChineseSubtitle` genre.
-                    case false when genres.Contains(ChineseSubtitle):
-                    {
-                        genres.RemoveAll(s => s.Equals(ChineseSubtitle));
-                        if (Plugin.Instance.Configuration.EnableBadges)
-                            itemChanged |= await SetPrimaryImage(item, string.Empty, cancellationToken);
-                        break;
-                    }
+                var classificationGenresChanged = OrganizeMetadataHelper.SynchronizeGenre(
+                    genres, OrganizeMetadataHelper.ChineseSubtitleGenre, hasChineseSubtitle);
+                classificationGenresChanged |= OrganizeMetadataHelper.SynchronizeGenre(
+                    genres, OrganizeMetadataHelper.UncensoredGenre, hasUncensored);
+
+                if (OrganizeMetadataHelper.ShouldUpdatePrimaryImage(
+                        Plugin.Instance.Configuration.EnableBadges,
+                        classificationGenresChanged,
+                        Plugin.Instance.Configuration.RefreshBadges,
+                        hasChineseSubtitle,
+                        hasUncensored))
+                {
+                    var badge = OrganizeMetadataHelper.SelectBadge(
+                        hasChineseSubtitle, hasUncensored, Plugin.Instance.Configuration.BadgeUrl);
+                    itemChanged |= await SetPrimaryImage(item, badge, cancellationToken);
                 }
             }
             catch (Exception e)
             {
-                _logger.Error("Update ChineseSubtitle for video {0}: {1}", item.Name, e.Message);
+                _logger.Error("Update subtitle badges for video {0}: {1}", item.Name, e.Message);
             }
 
             // Remove duplicates.
@@ -123,8 +118,10 @@ public class OrganizeMetadataTask : IScheduledTask
                     : genres).Distinct().OrderByString(genre => genre).ToList();
 
             // Skip updating item if equal.
-            if (orderedGenres.Any() &&
-                !(item.Genres?.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase)).GetValueOrDefault(false))
+            var genresUnchanged = item.Genres == null
+                ? orderedGenres.Count == 0
+                : item.Genres.SequenceEqual(orderedGenres, StringComparer.OrdinalIgnoreCase);
+            if (!genresUnchanged)
             {
                 item.Genres = orderedGenres.ToArray();
                 itemChanged = true;
@@ -149,40 +146,12 @@ public class OrganizeMetadataTask : IScheduledTask
 
     #region Helper
 
-    private const string ChineseSubtitle = "中文字幕";
-
-    private static bool HasTag(string filename, string tag)
-    {
-        var r = new Regex(@"[-_\s]", RegexOptions.Compiled);
-        return r.Split(filename).Contains(tag, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool HasTag(string filename, params string[] tags)
-    {
-        return tags.Any(tag => HasTag(filename, tag));
-    }
-
-    private static bool HasEmbeddedChineseSubtitle(string filename)
-    {
-        if (string.IsNullOrWhiteSpace(filename))
-            return false;
-
-        return filename.Contains(ChineseSubtitle) || HasTag(filename, "C", "UC", "ch");
-    }
-
     private static bool HasExternalChineseSubtitle(string path)
     {
-        return HasExternalChineseSubtitle(Path.GetFileNameWithoutExtension(path),
-            Directory.GetParent(path)?.GetFiles().Select(info => info.Name));
-    }
-
-    private static bool HasExternalChineseSubtitle(string basename, IEnumerable<string> files)
-    {
-        var r = new Regex(@"\.(ch[ist]|zho?(-(cn|hk|sg|tw))?)(?:\.[^.]+)*\.(ass|srt|ssa|smi|sub|idx|psb|vtt)$",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-        return files.Any(name => r.IsMatch(name) &&
-                                 r.Replace(name, string.Empty)
-                                     .Equals(basename, StringComparison.OrdinalIgnoreCase));
+        var files = Directory.GetParent(path)?.GetFiles().Select(info => info.Name) ??
+                    Enumerable.Empty<string>();
+        return OrganizeMetadataHelper.HasExternalChineseSubtitle(
+            Path.GetFileNameWithoutExtension(path), files);
     }
 
     private static async Task<bool> SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)
