@@ -6,13 +6,15 @@ namespace Jellyfin.Plugin.MetaTube.Tests;
 public class OrganizeMetadataHelperTests
 {
     [Theory]
-    [InlineData("ABC-U", true)]
-    [InlineData("ABC-u", true)]
-    [InlineData("ABC-U-4K", false)]
+    [InlineData("ABC-破解版", true)]
+    [InlineData("ABC-破解版x", false)]
+    [InlineData("ABC-破解版-4K", false)]
+    [InlineData("ABC-U", false)]
+    [InlineData("ABC-u", false)]
     [InlineData("ABC_U", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
-    public void HasUncensoredSuffix_OnlyMatchesFinalDashUSuffix(string? filename, bool expected)
+    public void HasUncensoredSuffix_OnlyMatchesFinalCrackedSuffix(string? filename, bool expected)
     {
         Assert.Equal(expected, OrganizeMetadataHelper.HasUncensoredSuffix(filename));
     }

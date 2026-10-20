@@ -35,7 +35,7 @@ internal static class OrganizeMetadataHelper
     internal static bool HasUncensoredSuffix(string filenameWithoutExtension)
     {
         return !string.IsNullOrWhiteSpace(filenameWithoutExtension) &&
-               filenameWithoutExtension.EndsWith("-U", StringComparison.OrdinalIgnoreCase);
+               filenameWithoutExtension.EndsWith("-破解版", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool SynchronizeGenre(List<string> genres, string genre, bool shouldExist)
