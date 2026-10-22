@@ -4,6 +4,8 @@ namespace Jellyfin.Plugin.MetaTube.ScheduledTasks;
 
 internal static class OrganizeMetadataHelper
 {
+    internal readonly record struct VersionEvidence(string FilenameWithoutExtension, IEnumerable<string> RelatedFiles);
+
     internal const string ChineseSubtitleGenre = "中文字幕";
     internal const string UncensoredGenre = "无码破解";
     internal const string UncensoredBadge = "u.png";
@@ -30,6 +32,22 @@ internal static class OrganizeMetadataHelper
         return files.Any(name => ExternalChineseSubtitle.IsMatch(name) &&
                                  ExternalChineseSubtitle.Replace(name, string.Empty)
                                      .Equals(basename, StringComparison.OrdinalIgnoreCase));
+    }
+
+    internal static (bool HasChineseSubtitle, bool HasUncensored) GetClassification(
+        IEnumerable<VersionEvidence> versions)
+    {
+        var hasChineseSubtitle = false;
+        var hasUncensored = false;
+
+        foreach (var version in versions)
+        {
+            hasChineseSubtitle |= HasEmbeddedChineseSubtitle(version.FilenameWithoutExtension) ||
+                                  HasExternalChineseSubtitle(version.FilenameWithoutExtension, version.RelatedFiles);
+            hasUncensored |= HasUncensoredSuffix(version.FilenameWithoutExtension);
+        }
+
+        return (hasChineseSubtitle, hasUncensored);
     }
 
     internal static bool HasUncensoredSuffix(string filenameWithoutExtension)

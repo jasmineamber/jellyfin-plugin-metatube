@@ -83,10 +83,9 @@ public class OrganizeMetadataTask : IScheduledTask
 
             try
             {
-                var hasChineseSubtitle =
-                    OrganizeMetadataHelper.HasEmbeddedChineseSubtitle(item.FileNameWithoutExtension) ||
-                    HasExternalChineseSubtitle(item.Path);
-                var hasUncensored = OrganizeMetadataHelper.HasUncensoredSuffix(item.FileNameWithoutExtension);
+                var versionEvidence = GetVersionEvidence(item);
+                var (hasChineseSubtitle, hasUncensored) =
+                    OrganizeMetadataHelper.GetClassification(versionEvidence);
 
                 var classificationGenresChanged = OrganizeMetadataHelper.SynchronizeGenre(
                     genres, OrganizeMetadataHelper.ChineseSubtitleGenre, hasChineseSubtitle);
@@ -146,12 +145,58 @@ public class OrganizeMetadataTask : IScheduledTask
 
     #region Helper
 
-    private static bool HasExternalChineseSubtitle(string path)
+    private static List<OrganizeMetadataHelper.VersionEvidence> GetVersionEvidence(BaseItem item)
     {
-        var files = Directory.GetParent(path)?.GetFiles().Select(info => info.Name) ??
-                    Enumerable.Empty<string>();
-        return OrganizeMetadataHelper.HasExternalChineseSubtitle(
-            Path.GetFileNameWithoutExtension(path), files);
+        var relatedFiles = Directory.GetParent(item.Path)?.GetFiles().Select(info => info.Name)
+                            .ToArray() ?? Array.Empty<string>();
+        var versions = new List<OrganizeMetadataHelper.VersionEvidence>();
+
+        void AddVersion(string path)
+        {
+            var filename = GetFilenameWithoutExtension(path);
+            if (!string.IsNullOrWhiteSpace(filename) &&
+                versions.All(version => !version.FilenameWithoutExtension.Equals(
+                    filename, StringComparison.OrdinalIgnoreCase)))
+                versions.Add(new OrganizeMetadataHelper.VersionEvidence(filename, relatedFiles));
+        }
+
+        AddVersion(item.Path);
+        if (item is IHasMediaSources hasMediaSources)
+        {
+#if __EMBY__
+            var mediaSources = hasMediaSources.GetMediaSources(null, false, false, null);
+#else
+            var mediaSources = hasMediaSources.GetMediaSources(false);
+#endif
+            foreach (var mediaSource in mediaSources)
+            {
+                AddVersion(GetFilenameWithoutExtension(mediaSource.Path, mediaSource.Name));
+            }
+        }
+
+        return versions;
+    }
+
+    private static string GetFilenameWithoutExtension(string path, string fallbackName = null)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return Path.GetFileNameWithoutExtension(fallbackName ?? string.Empty);
+
+        if (Uri.TryCreate(path, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var filenameIndex = Array.FindIndex(segments, segment =>
+                segment.Equals("n", StringComparison.OrdinalIgnoreCase));
+            if (filenameIndex >= 0 && filenameIndex + 1 < segments.Length)
+                path = Uri.UnescapeDataString(segments[filenameIndex + 1]);
+            else if (!string.IsNullOrWhiteSpace(fallbackName))
+                path = fallbackName;
+            else
+                path = Uri.UnescapeDataString(segments.LastOrDefault() ?? string.Empty);
+        }
+
+        return Path.GetFileNameWithoutExtension(path);
     }
 
     private static async Task<bool> SetPrimaryImage(BaseItem item, string badge, CancellationToken cancellationToken)

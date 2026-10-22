@@ -46,6 +46,37 @@ public class OrganizeMetadataHelperTests
             OrganizeMetadataHelper.HasExternalChineseSubtitle(basename, new[] { file }));
     }
 
+    [Fact]
+    public void GetClassification_AggregatesCrackedVersionWithOriginalVersion()
+    {
+        var versions = new[]
+        {
+            new OrganizeMetadataHelper.VersionEvidence("SONE-054-原版", Array.Empty<string>()),
+            new OrganizeMetadataHelper.VersionEvidence("SONE-054-破解版", Array.Empty<string>())
+        };
+
+        Assert.Equal((false, true), OrganizeMetadataHelper.GetClassification(versions));
+    }
+
+    [Fact]
+    public void GetClassification_AggregatesSubtitleAndCrackedEvidenceAcrossVersions()
+    {
+        var versions = new[]
+        {
+            new OrganizeMetadataHelper.VersionEvidence("SONE-054-原版", new[] { "SONE-054-原版.chi.srt" }),
+            new OrganizeMetadataHelper.VersionEvidence("SONE-054-破解版", Array.Empty<string>())
+        };
+
+        Assert.Equal((true, true), OrganizeMetadataHelper.GetClassification(versions));
+    }
+
+    [Fact]
+    public void GetClassification_WithoutVersionsHasNoClassification()
+    {
+        Assert.Equal((false, false), OrganizeMetadataHelper.GetClassification(
+            Array.Empty<OrganizeMetadataHelper.VersionEvidence>()));
+    }
+
     [Theory]
     [InlineData("中文字幕")]
     [InlineData("无码破解")]
